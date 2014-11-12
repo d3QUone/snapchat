@@ -1,7 +1,5 @@
-snapchat
-========
-
 SMM bot for Windows
+==
 
 Instalation 
 ==
