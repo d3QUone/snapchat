@@ -74,7 +74,9 @@ def request(endpoint, auth_token, data=None, files=None,
         'req_token': make_request_token(auth_token or STATIC_TOKEN,
                                         str(now))
     })
-    headers = {'User-Agent': 'Snapchat/6.1.2 (iPhone6,2; iOS 7.0.4; gzip)'}
+    headers = {'User-Agent': 'Snapchat/4.1.01 (Nexus 4; Android 18; gzip)'}
+    #Snapchat/4.1.01 (Nexus 4; Android 18; gzip)
+    #Snapchat/6.1.2 (iPhone6,2; iOS 7.0.4; gzip)
     if req_type == 'post':
         r = requests.post(URL + endpoint, data=data, files=files,
                           headers=headers, proxies=proxies)
