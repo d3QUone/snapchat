@@ -12,7 +12,7 @@ from uuid import uuid4
 import requests
 from Crypto.Cipher import AES
 
-URL = 'https://feelinsonice-hrd.appspot.com/bq/'
+URL = 'https://feelinsonice.appspot.com/bq/' #-hrd
 
 SECRET = b'iEk21fuwZApXlz93750dmW22pw389dPwOk'
 STATIC_TOKEN = 'm198sOkJEn37DjqZ32lpRu76xmw288xSQ9'
@@ -74,12 +74,15 @@ def request(endpoint, auth_token, data=None, files=None,
         'req_token': make_request_token(auth_token or STATIC_TOKEN,
                                         str(now))
     })
+    #if files is not None:
+    #    data.update(files)
+    
     headers = {'User-Agent': 'Snapchat/4.1.01 (Nexus 4; Android 18; gzip)'}
     #Snapchat/4.1.01 (Nexus 4; Android 18; gzip)
     #Snapchat/6.1.2 (iPhone6,2; iOS 7.0.4; gzip)
     if req_type == 'post':
         r = requests.post(URL + endpoint, data=data, files=files,
-                          headers=headers, proxies=proxies)
+                          headers=headers, proxies=proxies) #files=files,
     else:
         r = requests.get(URL + endpoint, params=data, headers=headers, proxies=proxies)
     if raise_for_status:
