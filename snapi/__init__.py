@@ -3,7 +3,7 @@
 import json
 import os.path
 from time import time
-# below pysnap. was deleted
+
 from utils import (encrypt, decrypt, decrypt_story,
                           make_media_id, request)
 
@@ -74,7 +74,6 @@ class Snapchat(object):
         ...
 
     """
-    #self.proxies = {}
     
     def __init__(self):
         self.username = None
@@ -82,6 +81,7 @@ class Snapchat(object):
 
     def _request(self, endpoint, data=None, files=None,
                  raise_for_status=True, req_type='post'):
+        #print "auth token", self.auth_token
         return request(endpoint, self.auth_token, data, files,
                        raise_for_status, req_type, proxies=proxies)
 
@@ -91,8 +91,8 @@ class Snapchat(object):
 
     def login(self, username, password):
         """Login to Snapchat account
-        Returns a dict containing user information on successful login, the
-        data returned is similar to get_updates.
+        Returns a dict containing user information on successful login,
+        the data returned is similar to get_updates.
 
         :param username Snapchat username
         :param password Snapchat password
@@ -103,10 +103,18 @@ class Snapchat(object):
             'password': password
         })
         result = r.json()
+        self.auth_token = result['auth_token']
+        self.username = result['username'] 
+        
+        '''
         if 'auth_token' in result:
             self.auth_token = result['auth_token']
+            #print "auth_token =", self.auth_token
         if 'username' in result:
-            self.username = username
+            self.username = result['username'] 
+            #print "(snapchat.login)username =", username
+        '''
+        
         return result
 
     def logout(self):
@@ -345,9 +353,11 @@ class Snapchat(object):
             'type': media_type
             }, files={'data': encrypt(data)})
 
+        #print "upload r \n", r 
+        # debug here 
         return media_id if len(r.content) == 0 else None
 
-    def send(self, media_id, recipients, time=5):
+    def send(self, media_id, recipients, time=10):
         """Send a snap. Requires a media_id returned by the upload method
         Returns true if the snap was sent successfully
         """
