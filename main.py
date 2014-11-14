@@ -1,12 +1,11 @@
-import urllib2, urllib, socket, requests, json
+import urllib2, urllib, socket, requests, json, threading
 from snapi import Snapchat
 from datetime import datetime
 
 inputData = []
 inputProxies = []
 imagename = ""
-threads = ""
-
+threads = 1
 result = {}
 
 full = 0
@@ -20,82 +19,111 @@ def main():
         raw_input()
         exit()
     elif sts == 1:
-        # everything is ok
+        f = open("output.txt", "w")
+        f.close()
         prepair()
-        oneThread()
+        oneThread(inputData)
 
-        print "\nlen = ", len(result)
-        for acc in result:
-            print acc + " " + result[acc]
+        '''
+        authdata = slice_list(inputData, threads)
+        thr = []
+        for i in range(threads):
+            data = authdata[i]
+            thread = threading.Thread(target=oneThread, args=(data, ))
+            thread.start()
 
-        print "\n\ntime =", datetime.now() - t
-        print "\nfull num = ", full
+        for t in thr:
+            t.join()'''
+        
+
+        #print "\nlen = ", len(result)
+        #print "\ntime =", datetime.now() - t
+        #print "\nfull num = ", full
 
 
-def oneThread():
+def slice_list(input, size):
+    input_size = len(input)
+    slice_size = input_size / size
+    remain = input_size % size
+    result = []
+    iterator = iter(input)
+    for i in range(size):
+        result.append([])
+        for j in range(slice_size):
+            result[i].append(iterator.next())
+        if remain:
+            result[i].append(iterator.next())
+            remain -= 1
+    return result
+
+
+def oneThread(inp):
     global full
-    print "used proxies:"
-    i = 0 
+    #print inp
     for proxy in inputProxies:
         if not is_bad_proxy(proxy):
-            print "+ " + proxy #only for UI
-            for auth in inputData:
+            for auth in inp: #inputData:
                 s = auth["user"]+":"+auth["pass"]
-
                 if s not in result:
                     num = process(proxy, auth)
+                    fff = open("output.txt", "a")
                     if num == 0:
+                        # break, --
                         result[s] = "#error"
+                        print s + " #error"
+                        fff.write(s + " #error\n")
                     else:
                         result[s] = "#" + str(num)
                         full += num
-        else:
-            print "- " + proxy #only for UI
+                        print s + " #" + str(num)
+                        fff.write(s + " #" + str(num) + "\n")
+                    fff.close()
 
         if len(inputData) == len(result):
+            print "Ran out of accounts"
             break
-
-        #---for early tests, proxy num
-        i += 1
-        if i > 20:
-            break
-        #---for early tests
+    #print "Ran out of proxies"
 
 
 # start new thread with a pack of users, for ex: 100 users -> 5 threads with 20 users
 def process(prox, auth):
-    #global result
-    #print "user "+auth["user"]+" pass "+auth["pass"]
     num = 0 #num of successfully processed snaps 
-    prox = {"http": "http://"+prox, "https": "https://"+prox}
+    prox = {"http": "http://"+prox}
 
     try:
         s = Snapchat()
         s.proxies = prox
+
+        # try login, if 403 - return "rotate proxy"
         login = s.login(auth["user"], auth["pass"])
+
         
-        # get friends
-        num = len(login["friends"])
+        print login 
+        # upload pic for curr account
+        media_id = s.upload(imagename)
+        #print "media_id", media_id
+
         recipients = ""
         for friend in login["friends"]:
             recipients += friend["name"] + ","
 
-        if len(recipients) > 1:
-            recipients = recipients[:-1] #delete last ","
-        else:
-            return 0 # because no friends 
-
-        # upload pic for curr account
-        media_id = s.upload(imagename)
-        # send snap to all
-        done = s.send(media_id, recipients, time = 10)
-        if done:
-            return num
-        else:
-            return 0
-        
+        #print "\nrecipients:", recipients
+        try:
+            done = s.send(media_id, recipients, time = 10)
+            #print "(done)", done
+            if done:
+                #num += 1
+                num = len(login["friends"])
+                return num
+            else:
+                return 0
+                
+        except Exception as ex:
+            print "(send) to name", recipients, "-", str(ex)
+            
+        return num
     except Exception as ex:
-        #print str(ex)
+        print "(main ex)", str(ex)
         return 0
 
 
@@ -168,7 +196,7 @@ def prepair():
     form = form[len(form)-1].split(".")[1]
     imagename = "file." + form
     urllib.urlretrieve(image, filename=imagename)
-    print "image is ready for upload"
+    #print "image is ready for upload"
 
 
 def is_bad_proxy(pip):
@@ -176,9 +204,9 @@ def is_bad_proxy(pip):
     try:        
         proxy_handler = urllib2.ProxyHandler({'http': pip})        
         opener = urllib2.build_opener(proxy_handler)
-        opener.addheaders = [('User-agent', 'Mozilla/5.0')]
+        opener.addheaders = [('User-agent', 'Snapchat/4.1.01 (Nexus 4; Android 18; gzip)')]
         urllib2.install_opener(opener)        
-        req=urllib2.Request('http://www.google.com')
+        req=urllib2.Request('http://google.com')#https://feelinsonice.appspot.com/bq/')
         sock=urllib2.urlopen(req)
     except urllib2.HTTPError, e:        
         return True 
