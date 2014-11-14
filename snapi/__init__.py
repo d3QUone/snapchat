@@ -83,7 +83,7 @@ class Snapchat(object):
                  raise_for_status=True, req_type='post'):
         #print "auth token", self.auth_token
         return request(endpoint, self.auth_token, data, files,
-                       raise_for_status, req_type, proxies=proxies)
+                       raise_for_status, req_type, proxies=self.proxies)
 
     def _unset_auth(self):
         self.username = None
