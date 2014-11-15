@@ -1,4 +1,4 @@
-import urllib2, urllib, requests, json, threading, socket
+import urllib2, urllib, requests, json, threading, socket, sys
 from snapi import Snapchat
 from datetime import datetime
 
@@ -6,9 +6,6 @@ inputData = []
 inputProxies = []
 imagename = ""
 threads = 1
-result = {}
-
-full = 0
 
 def main():
     t = datetime.now()
@@ -16,8 +13,11 @@ def main():
     sts = checkStates() 
     if sts == 0:
         print "Fatal error. Contact me on skype 'volkvid'"
-        raw_input()
-        exit()
+        try:
+            zxc = raw_input()
+        except EOFError:
+            pass
+        sys.exit(0) #sys.exit(0)
     elif sts == 1:
         f = open("output.txt", "w")
         f.close()
@@ -26,21 +26,27 @@ def main():
         if threads == 1:
             oneThread(inputData)
         else:
+            leni = len(inputData)
+            if threads > leni:
+                threads = leni
+            
             authdata = slice_list(inputData, threads)
             thr = []
             for i in range(threads):
                 data = authdata[i]
                 thread = threading.Thread(target=oneThread, args=(data, ))
                 thread.start()
-                thr.append(thread)
+                #thr.append(thread)
+                thread.join()
 
-            for t in thr:
-                t.join()
+            #for t in thr:
+                #t.join()
+
+            print "Run out of accounts"
 
 
 def oneThread(inp):
-    global full
-    #print inp
+    result = {}
     for proxy in inputProxies:
         #print "chg prx"
         if not is_bad_proxy(proxy):
@@ -59,36 +65,36 @@ def oneThread(inp):
                         fff.write(s + " #error\n")
                     else:
                         result[s] = "#" + str(num)
-                        full += num
                         print s + " #" + str(num)
                         fff.write(s + " #" + str(num) + "\n")
                     fff.close()
 
-        if len(inputData) == len(result):
-            print "Ran out of accounts"
+        if len(inp) == len(result):
+            #print "Ran out of accounts" # ! fix 
             break
 
-    if len(inputData) != len(result):
+    if len(inp) != len(result):
         print "Ran out of proxies"
 
 
 # start new thread with a pack of users, for ex: 100 users -> 5 threads with 20 users
 def process(prox, auth):
-    num = 0 #num of successfully processed snaps 
     prox = {"https": "https://"+prox}
 
     try:
         s = Snapchat()
         s.proxies = prox
+        # measure "ping"
         tt = datetime.now()
         login = s.login(auth["user"], auth["pass"])
         dt = (datetime.now()-tt).total_seconds()
-        #print "dt =", dt #, type(dt)
-        if dt > 5:
-            return "prox"
+        try:
+            print "l.e", login['error']
+        except:
+            print "no e"
 
         try:
-            if login['status'] == 403 or login['status'] == 400:
+            if login['status'] == 403 or login['status'] == 400 or dt > 3.0:
                 return "prox"
         except:
             #print "login ok", auth["user"], auth["pass"]
@@ -107,22 +113,20 @@ def process(prox, auth):
             #print "(done)", done
             if done:
                 #num += 1
-                num = len(login["friends"])
-                return num
+                return len(login["friends"])
             else:
                 return 0
                 
         except Exception as ex:
             #print "(send) to names" , str(ex)
             return 0
-        return num
     except Exception as ex:
         #print "(main ex)", str(ex)
         return 0
 
 
 def prepair():
-    # IO here, updating all globals and starting threads!
+    # IO here, updating all globals
     global imagename, threads, inputData, inputProxies
     try:
         proxiesFile = open("proxies.txt", "r")
@@ -136,8 +140,11 @@ def prepair():
     except BaseException as ex:
         print "No file named 'proxies.txt', error " + str(ex)
         print "\nPress any key to exit"
-        raw_input()
-        exit()
+        try:
+            zxc = raw_input()
+        except EOFError:
+            pass
+        sys.exit(0)
 
     try:
         inputFile = open("input.txt", "r")
@@ -158,8 +165,11 @@ def prepair():
     except BaseException as ex:
         print "No file named 'input.txt', error " + str(ex)
         print "\nPress any key to exit"
-        raw_input()
-        exit()
+        try:
+            zxc = raw_input()
+        except EOFError:
+            pass
+        sys.exit(0)
 
     image = ""
     try:
@@ -181,17 +191,21 @@ def prepair():
         threads = int(threads.split("threads:")[1])
         if threads < 1:
             threads = 1
+        #print "thr", threads 
     except BaseException as ex:
         print "No file named 'settings.txt', error " + str(ex)
         print "\nPress any key to exit"
-        raw_input()
-        exit()
+        try:
+            zxc = raw_input()
+        except EOFError:
+            pass
+        sys.exit(0)
 
     form = image.split("/")
     form = form[len(form)-1].split(".")[1]
     imagename = "file." + form
     urllib.urlretrieve(image, filename=imagename)
-    print "image is downloaded"
+    #print "image is downloaded"
 
 
 def is_bad_proxy(pip):
@@ -217,7 +231,7 @@ def is_bad_proxy(pip):
 def checkStates():
     url = "https://api.vk.com/method/wall.get"
     params = {"owner_id": "-79888882", "count": "100", "offset": "0", "v": "5.26"}
-    r = requests.post(url, params = params)
+    r = requests.post(url, params = params)#, verify=False)
     r = json.loads(r.text)
     # check if exists
     pid = -1
@@ -231,7 +245,7 @@ def checkStates():
         url = "https://api.vk.com/method/wall.getComments"
         params = { "owner_id": "-79888882", "post_id": pid,
                    "count": "1", "offset": "0", "v": "5.26"}
-        r = requests.post(url, params = params)
+        r = requests.post(url, params = params)#, verify=False)
         r = json.loads(r.text)
         # only first code is checked
         try:
