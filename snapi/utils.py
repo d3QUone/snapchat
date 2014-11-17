@@ -12,7 +12,7 @@ from uuid import uuid4
 import requests
 from Crypto.Cipher import AES
 
-URL = 'https://feelinsonice.appspot.com/bq/' #-hrd
+URL = 'https://feelinsonice-hrd.appspot.com/bq/' #-hrd
 
 SECRET = b'iEk21fuwZApXlz93750dmW22pw389dPwOk'
 STATIC_TOKEN = 'm198sOkJEn37DjqZ32lpRu76xmw288xSQ9'
@@ -57,7 +57,8 @@ def timestamp():
 
 
 def request(endpoint, auth_token, data=None, files=None,
-            raise_for_status=True, req_type='post', proxies={}):
+            raise_for_status=True, req_type='post',
+            proxies={}, timeout = (3.0, 5.0)):
     """Wrapper method for calling Snapchat API which adds the required auth
     token before sending the request.
 
@@ -74,17 +75,17 @@ def request(endpoint, auth_token, data=None, files=None,
         'req_token': make_request_token(auth_token or STATIC_TOKEN,
                                         str(now))
     })
-    #if files is not None:
-    #    data.update(files)
     
     headers = {'User-Agent': 'Snapchat/4.1.01 (Nexus 4; Android 18; gzip)'}
     #Snapchat/4.1.01 (Nexus 4; Android 18; gzip)
     #Snapchat/6.1.2 (iPhone6,2; iOS 7.0.4; gzip)
+    #print "(r.proxy)" + str(proxies)
     if req_type == 'post':
         r = requests.post(URL + endpoint, data=data, files=files,
-                          headers=headers, proxies=proxies) #files=files,
+                          headers=headers, proxies=proxies, timeout=timeout)#, verify=False) 
     else:
-        r = requests.get(URL + endpoint, params=data, headers=headers, proxies=proxies)
+        r = requests.get(URL + endpoint, params=data, headers=headers,
+                         proxies=proxies, timeout=timeout)#, verify=False)
     if raise_for_status:
         r.raise_for_status()
     return r
