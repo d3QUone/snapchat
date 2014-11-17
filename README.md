@@ -1,5 +1,4 @@
 <h3>Multiplatform Snapchat SMM bot</h3>
-==
 
 In short, this script takes Picture from settings-file and sends it to all friends on accounts in input-file, using proxies from proxies-file
 
