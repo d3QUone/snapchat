@@ -106,7 +106,7 @@ def oneThread(inp, inpProxy):
 
 
 def process(prox, auth):
-    socket.setdefaulttimeout(None)
+    socket.setdefaulttimeout(9.3)
     
     ret = {"st": 408, "num": 0} # 403 = bad_proxy, 408 = timeout
     prox = {"https": "http://"+prox, "http": "http://"+prox}
@@ -122,12 +122,12 @@ def process(prox, auth):
         print "(log t)", datetime.now() - asd
     except Exception:
         print "(log er)"
-        ret["st"] = 403 # save this tag to another file #17 49
+        ret["st"] = 403 # save this tag to another file , 20 00 # 2000/hour == 33/min
         return ret           
     try:
         status = login['status']
         ret["st"] = status
-        print ".1e"
+        print ".1e", status
         return ret
     except:
         print ".1"
