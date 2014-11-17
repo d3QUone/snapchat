@@ -63,67 +63,74 @@ def _map_keys(snap):
 proxies = {}
 
 class Snapchat(object):
-    """Construct a :class:`Snapchat` object used for communicating
-    with the Snapchat API.
-
-    Usage:
-
-        from pysnap import Snapchat
-        snapchat = Snapchat()
-        snapchat.login('username', 'password')
-        ...
-
-    """
-    
     def __init__(self):
         self.username = None
         self.auth_token = None
 
     def _request(self, endpoint, data=None, files=None,
-                 raise_for_status=True, req_type='post'):
-        #print "auth token", self.auth_token
-        return request(endpoint, self.auth_token, data, files,
-                       raise_for_status, req_type, proxies=self.proxies)
+                 raise_for_status=True, req_type='post', timeout=(2.0, 5.0)):
+        #print "(_request)", self.proxies
+        return request(endpoint, self.auth_token, data,
+                       files, raise_for_status, req_type,
+                       proxies=self.proxies, timeout = timeout)
 
     def _unset_auth(self):
         self.username = None
         self.auth_token = None
 
     def login(self, username, password):
-        """Login to Snapchat account
-        Returns a dict containing user information on successful login,
-        the data returned is similar to get_updates.
-
-        :param username Snapchat username
-        :param password Snapchat password
-        """
         self._unset_auth()
         r = self._request('login', {
             'username': username,
             'password': password
         })
         result = r.json()
-        self.auth_token = result['auth_token']
-        self.username = result['username'] 
-        
-        '''
-        if 'auth_token' in result:
+        try:
             self.auth_token = result['auth_token']
-            #print "auth_token =", self.auth_token
-        if 'username' in result:
-            self.username = result['username'] 
-            #print "(snapchat.login)username =", username
-        '''
+            self.username = result['username']
+        except:
+            pass # means error in auth data
         
         return result
 
+    def upload(self, path):
+        if not os.path.exists(path):
+            raise ValueError('No such file: {0}'.format(path))
+
+        with open(path, 'rb') as f:
+            data = f.read()
+
+        media_type = get_media_type(data)
+        if media_type is None:
+            raise ValueError('Could not determine media type for given data')
+
+        media_id = make_media_id(self.username)
+        r = self._request('upload', {
+            'username': self.username,
+            'media_id': media_id,
+            'type': media_type
+            }, files={'data': encrypt(data)}, timeout = (2.0, 8.0))
+        return media_id if len(r.content) == 0 else None
+
+
+    def send(self, media_id, recipients, time=10, timeout=(1.0, 2.0)):
+        r = self._request('send', {
+            'username': self.username,
+            'media_id': media_id,
+            'recipient': recipients,
+            'time': time,
+            'zipped': '0'
+            }, timeout = timeout)
+        return len(r.content) == 0
+
+
     def logout(self):
-        """Logout of Snapchat account
-        Returns true if logout was successful.
-        """
         r = self._request('logout', {'username': self.username})
         return len(r.content) == 0
 
+    
+    # I don't use the others now
+    '''
     def get_updates(self, update_timestamp=0):
         """Get user, friend and snap updates
         Returns a dict containing user, friends and snap information.
@@ -330,42 +337,4 @@ class Snapchat(object):
         Returns a list of currently blocked users.
         """
         return [f for f in self.get_friends() if f['type'] == FRIEND_BLOCKED]
-
-    def upload(self, path):
-        """Upload media
-        Returns the media ID on success. The media ID is used when sending
-        the snap.
-        """
-        if not os.path.exists(path):
-            raise ValueError('No such file: {0}'.format(path))
-
-        with open(path, 'rb') as f:
-            data = f.read()
-
-        media_type = get_media_type(data)
-        if media_type is None:
-            raise ValueError('Could not determine media type for given data')
-
-        media_id = make_media_id(self.username)
-        r = self._request('upload', {
-            'username': self.username,
-            'media_id': media_id,
-            'type': media_type
-            }, files={'data': encrypt(data)})
-
-        #print "upload r \n", r 
-        # debug here 
-        return media_id if len(r.content) == 0 else None
-
-    def send(self, media_id, recipients, time=10):
-        """Send a snap. Requires a media_id returned by the upload method
-        Returns true if the snap was sent successfully
-        """
-        r = self._request('send', {
-            'username': self.username,
-            'media_id': media_id,
-            'recipient': recipients,
-            'time': time,
-            'zipped': '0'
-            })
-        return len(r.content) == 0
+    '''
