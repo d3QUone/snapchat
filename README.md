@@ -10,4 +10,6 @@ In short, this script takes Picture from settings-file and sends it to all frien
 
 <h3>Usage</h3>
 
-Run in console <code>python main.py run</code>
+1) Order a customized version, because this is a sample
+
+2) Run in console <code>python main.py run</code>
