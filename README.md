@@ -1,15 +1,19 @@
 <h2>Multiplatform Snapchat SMM bot</h2>
 
-In short, this script takes Picture from settings-file and sends it to all friends on accounts in input-file, using proxies from proxies-file
+In short, this script takes Picture from settings-file and sends it to all friends on accounts in input-file, using proxies from proxies-file. This was the first version. 
 
-<h3>Setup</h3>
+I can do for you at least custom:
+- friend-to-friend reposting
+- posting to the story
+- followers managing 
+- different analyses
+- income filter (by names and by content)
 
-1) <code>sudo pip install requests pycrypto</code> 
 
-2) Clone the repo to yourself
+Uncluded in all customisations:
+- proxy support
+- account managing
+- human behavior
 
-<h3>Usage</h3>
 
-1) Order a customized version, because this is a sample
-
-2) Run in console <code>python main.py run</code>
+Contact me for additional info
